@@ -3,7 +3,7 @@ name: Daily Instagram Agent
 on:
   schedule:
     - cron: '0 9 * * *'  # Runs every day at 9:00 UTC
-  workflow_dispatch:
+  workflow_dispatch:      # Allows manual trigger from GitHub UI
 
 jobs:
   run-agent:
