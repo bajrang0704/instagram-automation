@@ -206,58 +206,48 @@ class InstagramAIAgent:
     def list_available_sheets(self):
         """List all available Google Sheets to help debug sheet access."""
         try:
-            # Always get credentials from environment variable (GitHub Actions)
-            google_creds_json = os.getenv('GOOGLE_CREDENTIALS')
-            if not google_creds_json:
-                raise Exception("GOOGLE_CREDENTIALS environment variable not set.")
-            import tempfile
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-                f.write(google_creds_json)
-                temp_creds_path = f.name
-            gc = gspread.service_account(filename=temp_creds_path)
-            os.unlink(temp_creds_path)  # Clean up temp file
+            gc = gspread.service_account(filename=GOOGLE_CREDENTIALS_PATH)
             all_sheets = gc.openall()
+            
             if not all_sheets:
                 logging.info("No Google Sheets found. Please check:")
                 logging.info("1. Your service account has access to any sheets")
                 logging.info("2. Sheets are shared with your service account email")
                 return
+            
             logging.info("Available Google Sheets:")
             for sheet in all_sheets:
                 logging.info(f"- '{sheet.title}' (ID: {sheet.id})")
+                
         except Exception as e:
             logging.error(f"Error listing sheets: {e}")
     
     def get_quotes_from_sheet(self):
         """Fetch quotes from Google Sheets."""
         try:
-            # Always get credentials from environment variable (GitHub Actions)
-            google_creds_json = os.getenv('GOOGLE_CREDENTIALS')
-            if not google_creds_json:
-                raise Exception("GOOGLE_CREDENTIALS environment variable not set.")
-            import tempfile
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-                f.write(google_creds_json)
-                temp_creds_path = f.name
-            gc = gspread.service_account(filename=temp_creds_path)
-            os.unlink(temp_creds_path)  # Clean up temp file
+            gc = gspread.service_account(filename=GOOGLE_CREDENTIALS_PATH)
             worksheet = gc.open(SHEET_NAME).get_worksheet(SHEET_WORKSHEET_INDEX)
             records = worksheet.get_all_records()
             df = pd.DataFrame(records)
+            
             # Check if we have the required columns
             required_columns = ['Quote', 'Author']
             missing_columns = [col for col in required_columns if col not in df.columns]
+            
             if missing_columns:
                 logging.error(f"Missing required columns in Google Sheet: {missing_columns}")
                 logging.info(f"Available columns: {list(df.columns)}")
                 logging.info("Please ensure your Google Sheet has columns named 'Quote' and 'Author'")
                 return None
+            
             if df.empty:
                 logging.error("Google Sheet is empty. Please add some quotes.")
                 return None
+            
             logging.info(f"Successfully fetched {len(df)} quotes from Google Sheets.")
             logging.info(f"Columns found: {list(df.columns)}")
             return df
+            
         except gspread.exceptions.APIError as e:
             logging.error(f"Google Sheets API Error: {e}")
             return None
@@ -268,12 +258,12 @@ class InstagramAIAgent:
             logging.error(f"Worksheet not found in '{SHEET_NAME}'. Please check the worksheet index.")
             return None
         except FileNotFoundError:
-            logging.error(f"Credentials file not found (should always use env var now).")
+            logging.error(f"Credentials file '{GOOGLE_CREDENTIALS_PATH}' not found.")
             return None
         except Exception as e:
             logging.error(f"Error connecting to Google Sheets: {e}")
             logging.info("Please check:")
-            logging.info("1. Your GOOGLE_CREDENTIALS environment variable is set and valid JSON")
+            logging.info("1. Your credentials.json file exists and is valid")
             logging.info("2. The Google Sheet name is correct")
             logging.info("3. The sheet is shared with your service account email")
             return None
