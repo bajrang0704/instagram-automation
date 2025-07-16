@@ -88,24 +88,17 @@ class InstagramAIAgent:
         """Setup Google Drive API for storing videos."""
         try:
             scopes = ['https://www.googleapis.com/auth/drive']
-            
-            # Try to get credentials from environment variable first (GitHub Actions)
+            # Always get credentials from environment variable (GitHub Actions)
             google_creds_json = os.getenv('GOOGLE_CREDENTIALS')
-            if google_creds_json:
-                # Create credentials from environment variable
-                import tempfile
-                with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-                    f.write(google_creds_json)
-                    temp_creds_path = f.name
-                
-                credentials = Credentials.from_service_account_file(temp_creds_path, scopes=scopes)
-                os.unlink(temp_creds_path)  # Clean up temp file
-            else:
-                # Fallback to local file
-                credentials = Credentials.from_service_account_file(GOOGLE_CREDENTIALS_PATH, scopes=scopes)
-            
+            if not google_creds_json:
+                raise Exception("GOOGLE_CREDENTIALS environment variable not set.")
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                f.write(google_creds_json)
+                temp_creds_path = f.name
+            credentials = Credentials.from_service_account_file(temp_creds_path, scopes=scopes)
+            os.unlink(temp_creds_path)  # Clean up temp file
             self.drive_service = build('drive', 'v3', credentials=credentials)
-            
             # Create or find the folder
             self.drive_folder_id = self.get_or_create_drive_folder()
             logging.info(f"Google Drive setup complete. Folder ID: {self.drive_folder_id}")
@@ -221,76 +214,58 @@ class InstagramAIAgent:
     def list_available_sheets(self):
         """List all available Google Sheets to help debug sheet access."""
         try:
-            # Try to get credentials from environment variable first (GitHub Actions)
+            # Always get credentials from environment variable (GitHub Actions)
             google_creds_json = os.getenv('GOOGLE_CREDENTIALS')
-            if google_creds_json:
-                # Create credentials from environment variable
-                import tempfile
-                with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-                    f.write(google_creds_json)
-                    temp_creds_path = f.name
-                
-                gc = gspread.service_account(filename=temp_creds_path)
-                os.unlink(temp_creds_path)  # Clean up temp file
-            else:
-                # Fallback to local file
-                gc = gspread.service_account(filename=GOOGLE_CREDENTIALS_PATH)
-            
+            if not google_creds_json:
+                raise Exception("GOOGLE_CREDENTIALS environment variable not set.")
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                f.write(google_creds_json)
+                temp_creds_path = f.name
+            gc = gspread.service_account(filename=temp_creds_path)
+            os.unlink(temp_creds_path)  # Clean up temp file
             all_sheets = gc.openall()
-            
             if not all_sheets:
                 logging.info("No Google Sheets found. Please check:")
                 logging.info("1. Your service account has access to any sheets")
                 logging.info("2. Sheets are shared with your service account email")
                 return
-            
             logging.info("Available Google Sheets:")
             for sheet in all_sheets:
                 logging.info(f"- '{sheet.title}' (ID: {sheet.id})")
-                
         except Exception as e:
             logging.error(f"Error listing sheets: {e}")
     
     def get_quotes_from_sheet(self):
         """Fetch quotes from Google Sheets."""
         try:
-            # Try to get credentials from environment variable first (GitHub Actions)
+            # Always get credentials from environment variable (GitHub Actions)
             google_creds_json = os.getenv('GOOGLE_CREDENTIALS')
-            if google_creds_json:
-                # Create credentials from environment variable
-                import tempfile
-                with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-                    f.write(google_creds_json)
-                    temp_creds_path = f.name
-                
-                gc = gspread.service_account(filename=temp_creds_path)
-                os.unlink(temp_creds_path)  # Clean up temp file
-            else:
-                # Fallback to local file
-                gc = gspread.service_account(filename=GOOGLE_CREDENTIALS_PATH)
-            
+            if not google_creds_json:
+                raise Exception("GOOGLE_CREDENTIALS environment variable not set.")
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                f.write(google_creds_json)
+                temp_creds_path = f.name
+            gc = gspread.service_account(filename=temp_creds_path)
+            os.unlink(temp_creds_path)  # Clean up temp file
             worksheet = gc.open(SHEET_NAME).get_worksheet(SHEET_WORKSHEET_INDEX)
             records = worksheet.get_all_records()
             df = pd.DataFrame(records)
-            
             # Check if we have the required columns
             required_columns = ['Quote', 'Author']
             missing_columns = [col for col in required_columns if col not in df.columns]
-            
             if missing_columns:
                 logging.error(f"Missing required columns in Google Sheet: {missing_columns}")
                 logging.info(f"Available columns: {list(df.columns)}")
                 logging.info("Please ensure your Google Sheet has columns named 'Quote' and 'Author'")
                 return None
-            
             if df.empty:
                 logging.error("Google Sheet is empty. Please add some quotes.")
                 return None
-            
             logging.info(f"Successfully fetched {len(df)} quotes from Google Sheets.")
             logging.info(f"Columns found: {list(df.columns)}")
             return df
-            
         except gspread.exceptions.APIError as e:
             logging.error(f"Google Sheets API Error: {e}")
             return None
@@ -301,12 +276,12 @@ class InstagramAIAgent:
             logging.error(f"Worksheet not found in '{SHEET_NAME}'. Please check the worksheet index.")
             return None
         except FileNotFoundError:
-            logging.error(f"Credentials file '{GOOGLE_CREDENTIALS_PATH}' not found.")
+            logging.error(f"Credentials file not found (should always use env var now).")
             return None
         except Exception as e:
             logging.error(f"Error connecting to Google Sheets: {e}")
             logging.info("Please check:")
-            logging.info("1. Your credentials.json file exists and is valid")
+            logging.info("1. Your GOOGLE_CREDENTIALS environment variable is set and valid JSON")
             logging.info("2. The Google Sheet name is correct")
             logging.info("3. The sheet is shared with your service account email")
             return None
@@ -636,38 +611,29 @@ class InstagramAIAgent:
     def mark_quote_as_used(self, quote_index):
         """Mark a quote as used by adding a 'Used' column instead of deleting."""
         try:
-            # Try to get credentials from environment variable first (GitHub Actions)
+            # Always get credentials from environment variable (GitHub Actions)
             google_creds_json = os.getenv('GOOGLE_CREDENTIALS')
-            if google_creds_json:
-                # Create credentials from environment variable
-                import tempfile
-                with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-                    f.write(google_creds_json)
-                    temp_creds_path = f.name
-                
-                gc = gspread.service_account(filename=temp_creds_path)
-                os.unlink(temp_creds_path)  # Clean up temp file
-            else:
-                # Fallback to local file
-                gc = gspread.service_account(filename=GOOGLE_CREDENTIALS_PATH)
-            
+            if not google_creds_json:
+                raise Exception("GOOGLE_CREDENTIALS environment variable not set.")
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                f.write(google_creds_json)
+                temp_creds_path = f.name
+            gc = gspread.service_account(filename=temp_creds_path)
+            os.unlink(temp_creds_path)  # Clean up temp file
             worksheet = gc.open(SHEET_NAME).get_worksheet(SHEET_WORKSHEET_INDEX)
-            
             # Get all records to check if 'Used' column exists
             records = worksheet.get_all_records()
             df = pd.DataFrame(records)
-            
             # If 'Used' column doesn't exist, add it
             if 'Used' not in df.columns:
                 # Add 'Used' column header
                 worksheet.update_cell(1, len(df.columns) + 1, 'Used')
                 logging.info("Added 'Used' column to Google Sheet")
-            
             # Mark the quote as used (row index + 2 for 1-indexed + header)
             row_to_update = quote_index + 2
             col_to_update = len(df.columns) + 1  # Last column
             worksheet.update_cell(row_to_update, col_to_update, 'Yes')
-            
             logging.info(f"Marked quote at index {quote_index} (row {row_to_update}) as used")
             print(f"[Sheets] Marked quote in row {row_to_update} as used")
             return True
@@ -679,27 +645,20 @@ class InstagramAIAgent:
     def delete_quote_from_sheet(self, quote_index):
         """Delete the used quote from Google Sheets to prevent reuse."""
         try:
-            # Try to get credentials from environment variable first (GitHub Actions)
+            # Always get credentials from environment variable (GitHub Actions)
             google_creds_json = os.getenv('GOOGLE_CREDENTIALS')
-            if google_creds_json:
-                # Create credentials from environment variable
-                import tempfile
-                with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-                    f.write(google_creds_json)
-                    temp_creds_path = f.name
-                
-                gc = gspread.service_account(filename=temp_creds_path)
-                os.unlink(temp_creds_path)  # Clean up temp file
-            else:
-                # Fallback to local file
-                gc = gspread.service_account(filename=GOOGLE_CREDENTIALS_PATH)
-            
+            if not google_creds_json:
+                raise Exception("GOOGLE_CREDENTIALS environment variable not set.")
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                f.write(google_creds_json)
+                temp_creds_path = f.name
+            gc = gspread.service_account(filename=temp_creds_path)
+            os.unlink(temp_creds_path)  # Clean up temp file
             worksheet = gc.open(SHEET_NAME).get_worksheet(SHEET_WORKSHEET_INDEX)
-            
             # Delete the row (add 2 because sheets are 1-indexed and we have a header row)
             row_to_delete = quote_index + 2
             worksheet.delete_rows(row_to_delete)
-            
             logging.info(f"Deleted quote at index {quote_index} (row {row_to_delete}) from Google Sheets")
             print(f"[Sheets] Deleted used quote from row {row_to_delete}")
             return True
