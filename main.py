@@ -574,22 +574,7 @@ class InstagramAIAgent:
         except Exception as e:
             logging.error(f"Error downloading file from Drive: {e}")
             return None
-"""     
-    def delete_drive_file(self, file_id):
-        
-        if not self.drive_service:
-            logging.warning("Google Drive service not initialized. Cannot delete file.")
-            return
-        try:
-            self.drive_service.files().delete(fileId=file_id, supportsAllDrives=True).execute()
-            logging.info(f"Deleted file from Google Drive: {file_id}")
-        except Exception as e:
-            if "insufficientFilePermissions" in str(e):
-                logging.warning(f"Cannot delete file {file_id} - file is public. This is normal behavior.")
-                print(f"[Drive] File {file_id} is public and cannot be deleted via API. This is expected.")
-            else:
-                logging.error(f"Error deleting file from Google Drive: {e}") 
-"""       
+
     def mark_quote_as_used(self, quote_index):
         """Mark a quote as used by adding a 'Used' column instead of deleting."""
         try:
