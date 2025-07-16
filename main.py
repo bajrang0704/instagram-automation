@@ -88,17 +88,9 @@ class InstagramAIAgent:
         """Setup Google Drive API for storing videos."""
         try:
             scopes = ['https://www.googleapis.com/auth/drive']
-            # Always get credentials from environment variable (GitHub Actions)
-            google_creds_json = os.getenv('GOOGLE_CREDENTIALS')
-            if not google_creds_json:
-                raise Exception("GOOGLE_CREDENTIALS environment variable not set.")
-            import tempfile
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-                f.write(google_creds_json)
-                temp_creds_path = f.name
-            credentials = Credentials.from_service_account_file(temp_creds_path, scopes=scopes)
-            os.unlink(temp_creds_path)  # Clean up temp file
+            credentials = Credentials.from_service_account_file(GOOGLE_CREDENTIALS_PATH, scopes=scopes)
             self.drive_service = build('drive', 'v3', credentials=credentials)
+            
             # Create or find the folder
             self.drive_folder_id = self.get_or_create_drive_folder()
             logging.info(f"Google Drive setup complete. Folder ID: {self.drive_folder_id}")
