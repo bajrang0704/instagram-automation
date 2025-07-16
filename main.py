@@ -608,6 +608,21 @@ class InstagramAIAgent:
             logging.error(f"Error marking quote as used: {e}")
             print(f"[Sheets] Error marking quote as used: {e}")
             return False
+ 
+    def delete_drive_file(self, file_id):
+        
+        if not self.drive_service:
+            logging.warning("Google Drive service not initialized. Cannot delete file.")
+            return
+        try:
+            self.drive_service.files().delete(fileId=file_id, supportsAllDrives=True).execute()
+            logging.info(f"Deleted file from Google Drive: {file_id}")
+        except Exception as e:
+            if "insufficientFilePermissions" in str(e):
+                logging.warning(f"Cannot delete file {file_id} - file is public. This is normal behavior.")
+                print(f"[Drive] File {file_id} is public and cannot be deleted via API. This is expected.")
+            else:
+                logging.error(f"Error deleting file from Google Drive: {e}")
 
     def delete_quote_from_sheet(self, quote_index):
         """Delete the used quote from Google Sheets to prevent reuse."""
