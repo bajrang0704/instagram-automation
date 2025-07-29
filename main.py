@@ -75,7 +75,14 @@ def set_music_index_in_sheet(index):
     gc = gspread.service_account(filename=temp_creds_path)
     os.unlink(temp_creds_path)
     worksheet = gc.open(SHEET_NAME).worksheet(SHEET_WORKSHEET_INDEX)  # Use main sheet
-    worksheet.update_acell('D2', str(index))
+    import logging
+    logging.info(f"Attempting to update D2 to {index}")
+    try:
+        worksheet.update_acell('D2', str(index))
+        logging.info("Successfully updated D2")
+    except Exception as e:
+        import traceback
+        logging.error(f"Error updating D2: {e}\n{traceback.format_exc()}")
 
 class InstagramAIAgent:
     def __init__(self):
