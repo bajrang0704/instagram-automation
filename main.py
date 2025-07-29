@@ -75,19 +75,43 @@ def get_music_index_from_sheet():
 
 def set_music_index_in_sheet(index):
     import gspread, os, tempfile
-    from oauth2client.service_account import ServiceAccountCredentials
+    import logging
+    import traceback
 
     google_creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
     if not google_creds_json:
-        raise Exception("GOOGLE_APPLICATION_CREDENTIALS_JSON not set.")
+        raise Exception("GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable not set.")
+    
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            f.write(google_creds_json)
+            temp_creds_path = f.name
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-        f.write(google_creds_json)
-        creds_path = f.name
+        gc = gspread.service_account(filename=temp_creds_path)
+        worksheet = gc.open(SHEET_NAME).get_worksheet(SHEET_WORKSHEET_INDEX)
 
-    gc = gspread.service_account(filename=creds_path)
-    sheet = gc.open_by_url("<your-sheet-url>").worksheet("Sheet1")
-    sheet.update_acell("D2", str(index))  
+        header_row = worksheet.row_values(1)
+        logging.info(f"Columns found: {header_row}")
+        if 'music_index' not in header_row:
+            raise Exception("'music_index' column not found in sheet")
+
+        col_index = header_row.index('music_index') + 1
+        logging.info(f"Attempting to update cell (2, {col_index}) to {index}")
+        worksheet.update_cell(2, col_index, str(index))
+        logging.info("Successfully updated music_index")
+
+        confirm = worksheet.cell(2, col_index).value
+        if str(confirm) != str(index):
+            logging.warning(f"Update mismatch: wrote {index}, but read back {confirm}")
+        else:
+            logging.info(f"Confirmed update: music_index = {confirm}")
+
+    except Exception as e:
+        logging.error(f"Exception while updating music index: {e}")
+        logging.error(traceback.format_exc())
+    finally:
+        if 'temp_creds_path' in locals() and os.path.exists(temp_creds_path):
+            os.unlink(temp_creds_path)
 
 
 class InstagramAIAgent:
