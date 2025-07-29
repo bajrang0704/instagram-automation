@@ -60,27 +60,30 @@ class InstagramAIAgent:
             self.setup_instagram_api()
     
     def load_progress(self):
-        """Load progress data to track which quote/music pair to use next."""
+        """Load progress data to track music/effect only (no quote progress)."""
         if os.path.exists(PROGRESS_FILE):
             try:
                 with open(PROGRESS_FILE, 'r') as f:
                     data = json.load(f)
+                    # Remove quote_index if present
+                    data.pop('quote_index', None)
                     if 'effect_index' not in data:
                         data['effect_index'] = 0
-                    logging.info(f"Loaded progress: Quote {data.get('quote_index', 0)}, Music {data.get('music_index', 0)}, Effect {data.get('effect_index', 0)}")
+                    logging.info(f"Loaded progress: Music {data.get('music_index', 0)}, Effect {data.get('effect_index', 0)}")
                     return data
             except Exception as e:
                 logging.error(f"Error loading progress: {e}")
-        
-        # Initialize with first items
-        return {'quote_index': 0, 'music_index': 0, 'last_reset': datetime.now().isoformat(), 'effect_index': 0}
+        # Initialize with first items (no quote_index)
+        return {'music_index': 0, 'last_reset': datetime.now().isoformat(), 'effect_index': 0}
     
     def save_progress(self):
-        """Save current progress."""
+        """Save current progress (music/effect only, no quote progress)."""
         try:
+            # Remove quote_index if present
+            self.progress_data.pop('quote_index', None)
             with open(PROGRESS_FILE, 'w') as f:
                 json.dump(self.progress_data, f, indent=2)
-            logging.info(f"Saved progress: Quote {self.progress_data['quote_index']}, Music {self.progress_data['music_index']}, Effect {self.progress_data.get('effect_index', 0)}")
+            logging.info(f"Saved progress: Music {self.progress_data['music_index']}, Effect {self.progress_data.get('effect_index', 0)}")
         except Exception as e:
             logging.error(f"Error saving progress: {e}")
     
