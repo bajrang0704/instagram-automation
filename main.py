@@ -57,8 +57,8 @@ def get_music_index_from_sheet():
         temp_creds_path = f.name
     gc = gspread.service_account(filename=temp_creds_path)
     os.unlink(temp_creds_path)
-    worksheet = gc.open(SHEET_NAME).worksheet('Progress')
-    value = worksheet.acell('A2').value
+    worksheet = gc.open(SHEET_NAME).worksheet(SHEET_WORKSHEET_INDEX)  # Use main sheet
+    value = worksheet.acell('D2').value
     try:
         return int(value)
     except Exception:
@@ -74,8 +74,8 @@ def set_music_index_in_sheet(index):
         temp_creds_path = f.name
     gc = gspread.service_account(filename=temp_creds_path)
     os.unlink(temp_creds_path)
-    worksheet = gc.open(SHEET_NAME).worksheet('Progress')
-    worksheet.update_acell('A2', str(index))
+    worksheet = gc.open(SHEET_NAME).worksheet(SHEET_WORKSHEET_INDEX)  # Use main sheet
+    worksheet.update_acell('D2', str(index))
 
 class InstagramAIAgent:
     def __init__(self):
