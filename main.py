@@ -82,20 +82,7 @@ def set_music_index_in_sheet(index):
         
         # Step 3: Authenticate and get the worksheet
         gc = gspread.service_account(filename=temp_creds_path)
-
-        # Environment variables for sheet
-        SHEET_NAME = os.getenv('SHEET_NAME')
-        SHEET_WORKSHEET_INDEX = os.getenv('SHEET_WORKSHEET_INDEX')  # can be name or index
-
-        logging.info(f"Opening Google Sheet: {SHEET_NAME}")
-        if SHEET_NAME is None or SHEET_WORKSHEET_INDEX is None:
-            raise Exception("SHEET_NAME or SHEET_WORKSHEET_INDEX environment variables not set.")
-
-        # Determine whether index or name
-        try:
-            worksheet = gc.open(SHEET_NAME).get_worksheet(int(SHEET_WORKSHEET_INDEX))
-        except ValueError:
-            worksheet = gc.open(SHEET_NAME).worksheet(SHEET_WORKSHEET_INDEX)
+        worksheet = gc.open(SHEET_NAME).get_worksheet(SHEET_WORKSHEET_INDEX)
 
         # Step 4: Update the cell with the new index
         logging.info(f"Attempting to update D2 to {index}")
