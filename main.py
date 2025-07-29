@@ -49,88 +49,49 @@ MANAGE_QUOTES_IN_SHEET = False  # Set to False to skip quote deletion/marking (i
 # Add these helper functions near the top (after imports and config):
 def get_music_index_from_sheet():
     import gspread, os, tempfile
-    import logging
-
     google_creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
     if not google_creds_json:
         raise Exception("GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable not set.")
-
+    
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
         f.write(google_creds_json)
         temp_creds_path = f.name
 
+    gc = gspread.service_account(filename=temp_creds_path)
+    sh = gc.open_by_url(os.getenv('SHEET_URL'))
+    worksheet = sh.worksheet("Quotes")  # Or your actual sheet name
+
     try:
-        gc = gspread.service_account(filename=temp_creds_path)
-        worksheet = gc.open(SHEET_NAME).get_worksheet(SHEET_WORKSHEET_INDEX)
-        print("Reading from:", sheet.title, "in spreadsheet:", sheet.spreadsheet.title)
-
-        header_row = worksheet.row_values(1)
-        logging.info(f"Columns found: {header_row}")
-        if 'music_index' not in header_row:
-            raise Exception("'music_index' column not found in sheet")
-
-        col_index = header_row.index('music_index') + 1  # 1-based index
-        cell_value = worksheet.cell(2, col_index).value
-        logging.info(f"Read music_index value from cell (2, {col_index}): {cell_value}")
-        return int(cell_value)
-
+        value = worksheet.acell("D2").value  # Assuming music_index is at D2
+        logging.info(f"Raw value fetched from D2: {value}")
+        return int(value or 0)
     except Exception as e:
-        logging.error(f"Error in get_music_index_from_sheet: {e}")
+        logging.error(f"Failed to get music_index: {e}")
         return 0
-    finally:
-        os.unlink(temp_creds_path)
+
 
 
 
 
 def set_music_index_in_sheet(index):
     import gspread, os, tempfile
-    import logging
-    import traceback
-
     google_creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
     if not google_creds_json:
         raise Exception("GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable not set.")
     
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        f.write(google_creds_json)
+        temp_creds_path = f.name
+
+    gc = gspread.service_account(filename=temp_creds_path)
+    sh = gc.open_by_url(os.getenv('SHEET_URL'))
+    worksheet = sh.worksheet("Quotes")  # Or your actual sheet name
     try:
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-            f.write(google_creds_json)
-            temp_creds_path = f.name
-
-        gc = gspread.service_account(filename=temp_creds_path)
-        worksheet = gc.open(SHEET_NAME).get_worksheet(SHEET_WORKSHEET_INDEX)
-        print("Reading from:", sheet.title, "in spreadsheet:", sheet.spreadsheet.title)
-        header_row = worksheet.row_values(1)
-        logging.info(f"Columns found: {header_row}")
-        if 'music_index' not in header_row:
-            raise Exception("'music_index' column not found in sheet")
-
-        col_index = header_row.index('music_index') + 1
-        logging.info(f"Attempting to update cell (2, {col_index}) to {index}")
-        worksheet.update_cell(2, col_index, str(index))
-        logging.info("Successfully updated music_index")
-
-        confirm = worksheet.cell(2, col_index).value
-        if str(confirm) != str(index):
-            logging.warning(f"Update mismatch: wrote {index}, but read back {confirm}")
-        else:
-            logging.info(f"Confirmed update: music_index = {confirm}")
-
+        worksheet.update_acell("D2", str(index))  # Assuming 'music_index' is at D2
+        logging.info(f"Successfully updated music_index to {index}")
     except Exception as e:
-        logging.error(f"Exception while updating music index: {e}")
-        logging.error(traceback.format_exc())
-    finally:
-        if 'temp_creds_path' in locals() and os.path.exists(temp_creds_path):
-            os.unlink(temp_creds_path)
+        logging.error(f"Failed to update music_index: {e}")
 
-
-    except Exception as e:
-        logging.error(f"Exception while updating music index: {e}")
-        logging.error(traceback.format_exc())
-    finally:
-        # Always clean up the temp file
-        if 'temp_creds_path' in locals() and os.path.exists(temp_creds_path):
-            os.unlink(temp_creds_path)
 
 class InstagramAIAgent:
     def __init__(self):
