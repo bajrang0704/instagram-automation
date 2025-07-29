@@ -49,20 +49,28 @@ MANAGE_QUOTES_IN_SHEET = False  # Set to False to skip quote deletion/marking (i
 # Add these helper functions near the top (after imports and config):
 def get_music_index_from_sheet():
     import gspread, os, tempfile
+    import logging
+
     google_creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
     if not google_creds_json:
         raise Exception("GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable not set.")
+
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
         f.write(google_creds_json)
         temp_creds_path = f.name
-    gc = gspread.service_account(filename=temp_creds_path)
-    os.unlink(temp_creds_path)
-    worksheet = gc.open(SHEET_NAME).worksheet(SHEET_WORKSHEET_INDEX)  # Use main sheet
-    value = worksheet.acell('D2').value
+
     try:
+        gc = gspread.service_account(filename=temp_creds_path)
+        worksheet = gc.open(SHEET_NAME).get_worksheet(SHEET_WORKSHEET_INDEX)  
+        value = worksheet.acell('D2').value
+        logging.info(f"Read value from D2: {value}")
         return int(value)
-    except Exception:
+    except Exception as e:
+        logging.error(f"Error in get_music_index_from_sheet: {e}")
         return 0
+    finally:
+        os.unlink(temp_creds_path)
+
 
 def set_music_index_in_sheet(index):
     import gspread, os, tempfile
