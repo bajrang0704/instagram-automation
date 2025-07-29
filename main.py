@@ -350,8 +350,11 @@ class InstagramAIAgent:
                 return None
 
             music_files.sort(key=lambda x: x['name'])  # Consistent order
-            music_index = get_music_index_from_sheet()
-            logging.info(f"Music index from sheet: {music_index}")
+            try:
+                music_index = int(get_music_index_from_sheet())
+            except Exception:
+                music_index = 0
+            logging.info(f"Music index from sheet: {music_index} (type: {type(music_index)})")
             if music_index >= len(music_files):
                 music_index = 0  # Wrap around if files were removed
                 logging.info(f"Music index wrapped to 0 due to out of range.")
