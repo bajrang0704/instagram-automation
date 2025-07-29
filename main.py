@@ -66,23 +66,56 @@ def get_music_index_from_sheet():
 
 def set_music_index_in_sheet(index):
     import gspread, os, tempfile
+    import logging
+    import traceback
+
+    # Step 1: Get service account credentials from environment variable
     google_creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
     if not google_creds_json:
         raise Exception("GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable not set.")
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-        f.write(google_creds_json)
-        temp_creds_path = f.name
-    gc = gspread.service_account(filename=temp_creds_path)
-    os.unlink(temp_creds_path)
-    worksheet = gc.open(SHEET_NAME).worksheet(SHEET_WORKSHEET_INDEX)  # Use main sheet
-    import logging
-    logging.info(f"Attempting to update D2 to {index}")
+    
+    # Step 2: Write creds to a temporary file
     try:
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            f.write(google_creds_json)
+            temp_creds_path = f.name
+        
+        # Step 3: Authenticate and get the worksheet
+        gc = gspread.service_account(filename=temp_creds_path)
+
+        # Environment variables for sheet
+        SHEET_NAME = os.getenv('SHEET_NAME')
+        SHEET_WORKSHEET_INDEX = os.getenv('SHEET_WORKSHEET_INDEX')  # can be name or index
+
+        logging.info(f"Opening Google Sheet: {SHEET_NAME}")
+        if SHEET_NAME is None or SHEET_WORKSHEET_INDEX is None:
+            raise Exception("SHEET_NAME or SHEET_WORKSHEET_INDEX environment variables not set.")
+
+        # Determine whether index or name
+        try:
+            worksheet = gc.open(SHEET_NAME).get_worksheet(int(SHEET_WORKSHEET_INDEX))
+        except ValueError:
+            worksheet = gc.open(SHEET_NAME).worksheet(SHEET_WORKSHEET_INDEX)
+
+        # Step 4: Update the cell with the new index
+        logging.info(f"Attempting to update D2 to {index}")
         worksheet.update_acell('D2', str(index))
         logging.info("Successfully updated D2")
+
+        # Step 5: Verify the update
+        confirm = worksheet.acell('D2').value
+        if str(confirm) != str(index):
+            logging.warning(f"Update mismatch: wrote {index}, but read back {confirm}")
+        else:
+            logging.info(f"Confirmed update: D2 = {confirm}")
+
     except Exception as e:
-        import traceback
-        logging.error(f"Error updating D2: {e}\n{traceback.format_exc()}")
+        logging.error(f"Exception while updating music index: {e}")
+        logging.error(traceback.format_exc())
+    finally:
+        # Always clean up the temp file
+        if 'temp_creds_path' in locals() and os.path.exists(temp_creds_path):
+            os.unlink(temp_creds_path)
 
 class InstagramAIAgent:
     def __init__(self):
