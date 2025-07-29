@@ -372,7 +372,9 @@ class InstagramAIAgent:
 
             # Move to next music
             next_index = (music_index + 1) % len(music_files)
+            logging.info(f"Calling set_music_index_in_sheet with next_index={next_index}")
             set_music_index_in_sheet(next_index)
+            logging.info("Returned from set_music_index_in_sheet")
 
             logging.info(f"Selected Music: {temp_path}")
             return temp_path
