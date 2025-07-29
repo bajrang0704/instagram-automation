@@ -59,8 +59,10 @@ def get_music_index_from_sheet():
     os.unlink(temp_creds_path)
     worksheet = gc.open(SHEET_NAME).worksheet(SHEET_WORKSHEET_INDEX)  # Use main sheet
     value = worksheet.acell('D2').value
-    
-    return int(value)
+    try:
+        return int(value)
+    except Exception:
+        return 0
 
 def set_music_index_in_sheet(index):
     import gspread, os, tempfile
@@ -375,8 +377,10 @@ class InstagramAIAgent:
                 return None
 
             music_files.sort(key=lambda x: x['name'])  # Consistent order
-            
-            music_index = int(get_music_index_from_sheet())
+            try:
+                music_index = int(get_music_index_from_sheet())
+            except Exception:
+                music_index = 0
             
             logging.info(f"Music index from sheet: {music_index} (type: {type(music_index)})")
             if music_index >= len(music_files):
