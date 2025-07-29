@@ -691,7 +691,7 @@ class InstagramAIAgent:
                 used_col_index = header_row.index('Used') + 1  # 1-indexed
 
             row_to_update = quote_index + 2  # +2 because of 1-indexing and header
-            worksheet.update_cell(row_to_update, used_col_index, 'Yes')
+            worksheet.update_cell(row_to_update, used_col_index, 'yes')
             logging.info(f"Marked quote at index {quote_index} (row {row_to_update}) as used")
             print(f"[Sheets] Marked quote in row {row_to_update} as used")
             return True
