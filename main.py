@@ -75,22 +75,19 @@ def get_music_index_from_sheet():
 
 def set_music_index_in_sheet(index):
     import gspread, os, tempfile
+    from oauth2client.service_account import ServiceAccountCredentials
+
     google_creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
     if not google_creds_json:
-        raise Exception("GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable not set.")
-    
+        raise Exception("GOOGLE_APPLICATION_CREDENTIALS_JSON not set.")
+
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
         f.write(google_creds_json)
-        temp_creds_path = f.name
+        creds_path = f.name
 
-    gc = gspread.service_account(filename=temp_creds_path)
-    sh = gc.open_by_url(os.getenv('SHEET_URL'))
-    worksheet = sh.worksheet("Quotes")  # Or your actual sheet name
-    try:
-        worksheet.update_acell("D2", str(index))  # Assuming 'music_index' is at D2
-        logging.info(f"Successfully updated music_index to {index}")
-    except Exception as e:
-        logging.error(f"Failed to update music_index: {e}")
+    gc = gspread.service_account(filename=creds_path)
+    sheet = gc.open_by_url("<your-sheet-url>").worksheet("Sheet1")
+    sheet.update_acell("D2", str(index))  
 
 
 class InstagramAIAgent:
