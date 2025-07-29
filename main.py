@@ -344,14 +344,17 @@ class InstagramAIAgent:
         """Get the next music file from Google Drive, tracking progress in the sheet."""
         try:
             music_files = self.list_drive_music_files()
+            logging.info(f"Music files found: {music_files}")
             if not music_files:
                 logging.error("No .mp3 files found in the Drive music folder.")
                 return None
 
             music_files.sort(key=lambda x: x['name'])  # Consistent order
             music_index = get_music_index_from_sheet()
+            logging.info(f"Music index from sheet: {music_index}")
             if music_index >= len(music_files):
                 music_index = 0  # Wrap around if files were removed
+                logging.info(f"Music index wrapped to 0 due to out of range.")
 
             selected_file = music_files[music_index]
             temp_path = f"temp_{selected_file['name']}"
