@@ -61,11 +61,18 @@ def get_music_index_from_sheet():
 
     try:
         gc = gspread.service_account(filename=temp_creds_path)
-        worksheet = gc.open(SHEET_NAME).get_worksheet(SHEET_WORKSHEET_INDEX)  
-        logging.info(f"Accessed sheet: {SHEET_NAME}, worksheet title: {worksheet.title}")
-        value = worksheet.acell('D2').value
-        logging.info(f"Read value from D2: {value}")
-        return int(value)
+        worksheet = gc.open(SHEET_NAME).get_worksheet(SHEET_WORKSHEET_INDEX)
+
+        header_row = worksheet.row_values(1)
+        logging.info(f"Columns found: {header_row}")
+        if 'music_index' not in header_row:
+            raise Exception("'music_index' column not found in sheet")
+
+        col_index = header_row.index('music_index') + 1  # 1-based index
+        cell_value = worksheet.cell(2, col_index).value
+        logging.info(f"Read music_index value from cell (2, {col_index}): {cell_value}")
+        return int(cell_value)
+
     except Exception as e:
         logging.error(f"Error in get_music_index_from_sheet: {e}")
         return 0
@@ -74,37 +81,47 @@ def get_music_index_from_sheet():
 
 
 
+
 def set_music_index_in_sheet(index):
     import gspread, os, tempfile
     import logging
     import traceback
 
-    # Step 1: Get service account credentials from environment variable
     google_creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
     if not google_creds_json:
         raise Exception("GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable not set.")
     
-    # Step 2: Write creds to a temporary file
     try:
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
             f.write(google_creds_json)
             temp_creds_path = f.name
-        
-        # Step 3: Authenticate and get the worksheet
+
         gc = gspread.service_account(filename=temp_creds_path)
         worksheet = gc.open(SHEET_NAME).get_worksheet(SHEET_WORKSHEET_INDEX)
 
-        # Step 4: Update the cell with the new index
-        logging.info(f"Attempting to update D2 to {index}")
-        worksheet.update_acell('D2', str(index))
-        logging.info("Successfully updated D2")
+        header_row = worksheet.row_values(1)
+        logging.info(f"Columns found: {header_row}")
+        if 'music_index' not in header_row:
+            raise Exception("'music_index' column not found in sheet")
 
-        # Step 5: Verify the update
-        confirm = worksheet.acell('D2').value
+        col_index = header_row.index('music_index') + 1
+        logging.info(f"Attempting to update cell (2, {col_index}) to {index}")
+        worksheet.update_cell(2, col_index, str(index))
+        logging.info("Successfully updated music_index")
+
+        confirm = worksheet.cell(2, col_index).value
         if str(confirm) != str(index):
             logging.warning(f"Update mismatch: wrote {index}, but read back {confirm}")
         else:
-            logging.info(f"Confirmed update: D2 = {confirm}")
+            logging.info(f"Confirmed update: music_index = {confirm}")
+
+    except Exception as e:
+        logging.error(f"Exception while updating music index: {e}")
+        logging.error(traceback.format_exc())
+    finally:
+        if 'temp_creds_path' in locals() and os.path.exists(temp_creds_path):
+            os.unlink(temp_creds_path)
+
 
     except Exception as e:
         logging.error(f"Exception while updating music index: {e}")
