@@ -62,6 +62,7 @@ def get_music_index_from_sheet():
     try:
         gc = gspread.service_account(filename=temp_creds_path)
         worksheet = gc.open(SHEET_NAME).get_worksheet(SHEET_WORKSHEET_INDEX)
+        print("Reading from:", sheet.title, "in spreadsheet:", sheet.spreadsheet.title)
 
         header_row = worksheet.row_values(1)
         logging.info(f"Columns found: {header_row}")
@@ -98,7 +99,7 @@ def set_music_index_in_sheet(index):
 
         gc = gspread.service_account(filename=temp_creds_path)
         worksheet = gc.open(SHEET_NAME).get_worksheet(SHEET_WORKSHEET_INDEX)
-
+        print("Reading from:", sheet.title, "in spreadsheet:", sheet.spreadsheet.title)
         header_row = worksheet.row_values(1)
         logging.info(f"Columns found: {header_row}")
         if 'music_index' not in header_row:
