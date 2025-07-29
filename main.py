@@ -656,50 +656,51 @@ class InstagramAIAgent:
             return None
 
     def mark_quote_as_used(self, quote_index):
-    """Mark a quote as used by updating the 'Used' column in the correct position."""
-    try:
-        import tempfile
-        import os
-        import pandas as pd
-        import gspread
-        import logging
+        """Mark a quote as used by updating the 'Used' column in the correct position."""
+        try:
+            import tempfile
+            import os
+            import pandas as pd
+            import gspread
+            import logging
 
-        google_creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
-        if not google_creds_json:
-            raise Exception("GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable not set.")
+            google_creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
+            if not google_creds_json:
+                raise Exception("GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable not set.")
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-            f.write(google_creds_json)
-            temp_creds_path = f.name
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                f.write(google_creds_json)
+                temp_creds_path = f.name
 
-        gc = gspread.service_account(filename=temp_creds_path)
-        os.unlink(temp_creds_path)  # Clean up temp file
+            gc = gspread.service_account(filename=temp_creds_path)
+            os.unlink(temp_creds_path)  # Clean up temp file
 
-        worksheet = gc.open(SHEET_NAME).get_worksheet(SHEET_WORKSHEET_INDEX)
-        records = worksheet.get_all_records()
-        df = pd.DataFrame(records)
+            worksheet = gc.open(SHEET_NAME).get_worksheet(SHEET_WORKSHEET_INDEX)
+            records = worksheet.get_all_records()
+            df = pd.DataFrame(records)
 
-        header_row = worksheet.row_values(1)
+            header_row = worksheet.row_values(1)
 
-        if 'Used' not in header_row:
-            # Add 'Used' to the first empty column
-            worksheet.update_cell(1, len(header_row) + 1, 'Used')
-            used_col_index = len(header_row) + 1
-            logging.info("Added 'Used' column to Google Sheet")
-        else:
-            # Find the actual column index of 'Used'
-            used_col_index = header_row.index('Used') + 1  # 1-indexed
+            if 'Used' not in header_row:
+                # Add 'Used' to the first empty column
+                worksheet.update_cell(1, len(header_row) + 1, 'Used')
+                used_col_index = len(header_row) + 1
+                logging.info("Added 'Used' column to Google Sheet")
+            else:
+                # Find the actual column index of 'Used'
+                used_col_index = header_row.index('Used') + 1  # 1-indexed
 
-        row_to_update = quote_index + 2  # +2 because of 1-indexing and header
-        worksheet.update_cell(row_to_update, used_col_index, 'Yes')
-        logging.info(f"Marked quote at index {quote_index} (row {row_to_update}) as used")
-        print(f"[Sheets] Marked quote in row {row_to_update} as used")
-        return True
+            row_to_update = quote_index + 2  # +2 because of 1-indexing and header
+            worksheet.update_cell(row_to_update, used_col_index, 'Yes')
+            logging.info(f"Marked quote at index {quote_index} (row {row_to_update}) as used")
+            print(f"[Sheets] Marked quote in row {row_to_update} as used")
+            return True
 
-    except Exception as e:
-        logging.error(f"Error marking quote as used: {e}")
-        print(f"[Sheets] Error marking quote as used: {e}")
-        return False
+        except Exception as e:
+            logging.error(f"Error marking quote as used: {e}")
+            print(f"[Sheets] Error marking quote as used: {e}")
+            return False
+
 
  
     def delete_drive_file(self, file_id):
