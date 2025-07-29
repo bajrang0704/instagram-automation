@@ -46,6 +46,37 @@ SHEET_NAME = 'Instagram quotes'  # The name of your Google Sheet
 SHEET_WORKSHEET_INDEX = 0       # 0 for the first sheet
 MANAGE_QUOTES_IN_SHEET = False  # Set to False to skip quote deletion/marking (if no edit permissions)
 
+# Add these helper functions near the top (after imports and config):
+def get_music_index_from_sheet():
+    import gspread, os, tempfile
+    google_creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
+    if not google_creds_json:
+        raise Exception("GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable not set.")
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        f.write(google_creds_json)
+        temp_creds_path = f.name
+    gc = gspread.service_account(filename=temp_creds_path)
+    os.unlink(temp_creds_path)
+    worksheet = gc.open(SHEET_NAME).worksheet('Progress')
+    value = worksheet.acell('A2').value
+    try:
+        return int(value)
+    except Exception:
+        return 0
+
+def set_music_index_in_sheet(index):
+    import gspread, os, tempfile
+    google_creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
+    if not google_creds_json:
+        raise Exception("GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable not set.")
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        f.write(google_creds_json)
+        temp_creds_path = f.name
+    gc = gspread.service_account(filename=temp_creds_path)
+    os.unlink(temp_creds_path)
+    worksheet = gc.open(SHEET_NAME).worksheet('Progress')
+    worksheet.update_acell('A2', str(index))
+
 class InstagramAIAgent:
     def __init__(self):
         self.progress_data = self.load_progress()
@@ -60,30 +91,32 @@ class InstagramAIAgent:
             self.setup_instagram_api()
     
     def load_progress(self):
-        """Load progress data to track music/effect only (no quote progress)."""
+        """Load progress data to track effect only (no quote/music progress)."""
         if os.path.exists(PROGRESS_FILE):
             try:
                 with open(PROGRESS_FILE, 'r') as f:
                     data = json.load(f)
-                    # Remove quote_index if present
+                    # Remove quote_index and music_index if present
                     data.pop('quote_index', None)
+                    data.pop('music_index', None)
                     if 'effect_index' not in data:
                         data['effect_index'] = 0
-                    logging.info(f"Loaded progress: Music {data.get('music_index', 0)}, Effect {data.get('effect_index', 0)}")
+                    logging.info(f"Loaded progress: Effect {data.get('effect_index', 0)}")
                     return data
             except Exception as e:
                 logging.error(f"Error loading progress: {e}")
-        # Initialize with first items (no quote_index)
-        return {'music_index': 0, 'last_reset': datetime.now().isoformat(), 'effect_index': 0}
+        # Initialize with first items (no quote/music index)
+        return {'last_reset': datetime.now().isoformat(), 'effect_index': 0}
     
     def save_progress(self):
-        """Save current progress (music/effect only, no quote progress)."""
+        """Save current progress (effect only, no quote/music progress)."""
         try:
-            # Remove quote_index if present
+            # Remove quote_index and music_index if present
             self.progress_data.pop('quote_index', None)
+            self.progress_data.pop('music_index', None)
             with open(PROGRESS_FILE, 'w') as f:
                 json.dump(self.progress_data, f, indent=2)
-            logging.info(f"Saved progress: Music {self.progress_data['music_index']}, Effect {self.progress_data.get('effect_index', 0)}")
+            logging.info(f"Saved progress: Effect {self.progress_data.get('effect_index', 0)}")
         except Exception as e:
             logging.error(f"Error saving progress: {e}")
     
@@ -308,7 +341,7 @@ class InstagramAIAgent:
         return quote, author, index
     
     def get_sequential_music(self):
-        """Get the next music file from Google Drive."""
+        """Get the next music file from Google Drive, tracking progress in the sheet."""
         try:
             music_files = self.list_drive_music_files()
             if not music_files:
@@ -316,18 +349,17 @@ class InstagramAIAgent:
                 return None
 
             music_files.sort(key=lambda x: x['name'])  # Consistent order
-            music_index = self.progress_data['music_index']
-
+            music_index = get_music_index_from_sheet()
             if music_index >= len(music_files):
-                music_index = 0
-                self.progress_data['music_index'] = 0
+                music_index = 0  # Wrap around if files were removed
 
             selected_file = music_files[music_index]
             temp_path = f"temp_{selected_file['name']}"
             self.download_drive_file(selected_file['id'], temp_path)
 
             # Move to next music
-            self.progress_data['music_index'] = (music_index + 1) % len(music_files)
+            next_index = (music_index + 1) % len(music_files)
+            set_music_index_in_sheet(next_index)
 
             logging.info(f"Selected Music: {temp_path}")
             return temp_path
