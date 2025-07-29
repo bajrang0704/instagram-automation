@@ -269,24 +269,47 @@ class InstagramAIAgent:
             return None
     
     def get_sequential_quote(self, quotes_df):
-        """Get the next quote in sequence."""
+        """Get the next unused quote from the sheet (where 'Used' is not set). Returns (quote, author, index)."""
         if quotes_df is None or quotes_df.empty:
-            return None, None
-        
-        quote_index = self.progress_data['quote_index']
-        if quote_index >= len(quotes_df):
-            # Reset to beginning if we've used all quotes
-            quote_index = 0
-            self.progress_data['quote_index'] = 0
-        
-        quote_row = quotes_df.iloc[quote_index]
-        quote = quote_row['Quote']
-        author = quote_row['Author']
-        
-        # Move to next quote
-        self.progress_data['quote_index'] = (quote_index + 1) % len(quotes_df)
-        
-        return quote, author
+            return None, None, None
+        # Only consider quotes where 'Used' is not set/empty/false
+        unused_mask = ~quotes_df.get('Used', '').astype(str).str.lower().isin(['yes', 'true', '1'])
+        unused_quotes = quotes_df[unused_mask]
+        if unused_quotes.empty:
+            logging.info("All quotes have been used. Resetting 'Used' column for all quotes.")
+            # Reset all 'Used' values to blank
+            import gspread
+            google_creds_json = os.getenv('GOOGLE_CREDENTIALS')
+            if google_creds_json:
+                import tempfile
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                    f.write(google_creds_json)
+                    temp_creds_path = f.name
+                gc = gspread.service_account(filename=temp_creds_path)
+                os.unlink(temp_creds_path)
+            else:
+                gc = gspread.service_account(filename=GOOGLE_CREDENTIALS_PATH)
+            worksheet = gc.open(SHEET_NAME).get_worksheet(SHEET_WORKSHEET_INDEX)
+            # Set all 'Used' cells to blank
+            records = worksheet.get_all_records()
+            df = pd.DataFrame(records)
+            if 'Used' in df.columns:
+                used_col = df.columns.get_loc('Used') + 1
+                for i in range(2, len(df) + 2):
+                    worksheet.update_cell(i, used_col, '')
+            # Re-fetch quotes
+            quotes_df = self.get_quotes_from_sheet()
+            unused_mask = ~quotes_df.get('Used', '').astype(str).str.lower().isin(['yes', 'true', '1'])
+            unused_quotes = quotes_df[unused_mask]
+            if unused_quotes.empty:
+                logging.error("No quotes available after reset.")
+                return None, None, None
+        # Get the first unused quote
+        first_unused = unused_quotes.iloc[0]
+        quote = first_unused['Quote']
+        author = first_unused['Author']
+        index = first_unused.name  # This is the DataFrame index, matches row in sheet minus header
+        return quote, author, index
     
     def get_sequential_music(self):
         """Get the next music file from Google Drive."""
@@ -398,29 +421,23 @@ class InstagramAIAgent:
     def create_video(self):
         """Main function to create a video."""
         logging.info("Starting Instagram AI Agent...")
-        
-        # Check weekly reset
-        self.check_weekly_reset()
-        
+        # Check weekly reset (optional, can be removed if not needed)
+        # self.check_weekly_reset()
         # Get quotes
         quotes_df = self.get_quotes_from_sheet()
         if quotes_df is None or quotes_df.empty:
             logging.error("Could not fetch quotes. Exiting.")
             return False
-        
-        # Get sequential quote and music
-        quote, author = self.get_sequential_quote(quotes_df)
-        if not quote or not author:
+        # Get next unused quote and music
+        quote, author, quote_index = self.get_sequential_quote(quotes_df)
+        if not quote or not author or quote_index is None:
             logging.error("Could not get quote. Exiting.")
             return False
-        
         music_file = self.get_sequential_music()
         if not music_file:
             logging.error("Could not get music file. Exiting.")
             return False
-        
         logging.info(f"Selected Quote: '{quote}' by {author}")
-        
         # --- Effect cycling logic ---
         from config import AVAILABLE_EFFECTS
         effect_index = self.progress_data.get('effect_index', 0)
@@ -434,10 +451,8 @@ class InstagramAIAgent:
         if not video_filename:
             logging.error("Video creation failed.")
             return False
-        
         logging.info(f"Video created successfully: {video_filename}")
         logging.info(f"Quote: '{quote}' by {author}")
-        
         # Upload to Google Drive if enabled
         drive_id = None
         public_url = None
@@ -447,7 +462,6 @@ class InstagramAIAgent:
                 logging.info(f"Video uploaded to Google Drive with ID: {drive_id}")
                 public_url = f"https://drive.google.com/uc?id={drive_id}&export=download"
                 print("Public video URL:", public_url)
-        
         # Use test1.py style Instagram posting with the generated public_url
         if public_url:
             IG_USER_ID = INSTAGRAM_USER_ID
@@ -491,24 +505,14 @@ class InstagramAIAgent:
                 self.delete_drive_file(drive_id)
                 print(f"[Drive] Deleted video from Google Drive: {drive_id}")
                 logging.info(f"Deleted video from Google Drive: {drive_id}")
-            # Delete the used quote from Google Sheets after successful Instagram post
-            if publish_resp.json().get('id') and MANAGE_QUOTES_IN_SHEET:
-                # Get the current quote index before it gets incremented
-                current_quote_index = self.progress_data['quote_index'] - 1
-                if current_quote_index < 0:
-                    current_quote_index = len(quotes_df) - 1  # Wrap around to last quote
-                self.delete_quote_from_sheet(current_quote_index)
-            elif publish_resp.json().get('id'):
-                print("[Sheets] Quote management disabled - quotes will be reused")
-        
-        # Save progress
-        self.save_progress()
-        
+            # Mark the used quote in Google Sheets after successful Instagram post
+            if publish_resp.json().get('id'):
+                self.mark_quote_as_used(quote_index)
+        # Save effect progress only (no quote/music progress)
         # Clean up the downloaded temp music file
         if music_file and music_file.startswith("temp_") and os.path.exists(music_file):
             os.remove(music_file)
             logging.info(f"Deleted temporary music file: {music_file}")
-        
         return True
 
     def post_video_direct_url(self, public_url, caption):
