@@ -62,6 +62,7 @@ def get_music_index_from_sheet():
     try:
         gc = gspread.service_account(filename=temp_creds_path)
         worksheet = gc.open(SHEET_NAME).get_worksheet(SHEET_WORKSHEET_INDEX)  
+        logging.info(f"Accessed sheet: {SHEET_NAME}, worksheet title: {worksheet.title}")
         value = worksheet.acell('D2').value
         logging.info(f"Read value from D2: {value}")
         return int(value)
@@ -70,6 +71,7 @@ def get_music_index_from_sheet():
         return 0
     finally:
         os.unlink(temp_creds_path)
+
 
 
 def set_music_index_in_sheet(index):
