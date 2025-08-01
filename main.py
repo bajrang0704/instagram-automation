@@ -24,6 +24,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 import pickle
 
+
 # Configure MoviePy to use a different text rendering method
 try:
     change_settings({"IMAGEMAGICK_BINARY": "magick"})
@@ -413,6 +414,31 @@ class InstagramAIAgent:
             logging.error(f"Error selecting music: {e}")
             return None
     
+
+    def get_random_music(self):
+        """Get a random music file from Google Drive."""
+        try:
+            music_files = self.list_drive_music_files()
+            logging.info(f"Music files found: {music_files}")
+
+            if not music_files:
+                logging.error("No .mp3 files found in the Drive music folder.")
+                return None
+
+            # Pick a random music file
+            selected_file = random.choice(music_files)
+            temp_path = f"temp_{selected_file['name']}"
+
+            self.download_drive_file(selected_file['id'], temp_path)
+            logging.info(f"Selected Random Music: {temp_path}")
+
+            return temp_path
+
+        except Exception as e:
+            logging.error(f"Error selecting random music: {e}")
+            return None
+
+    
     def create_instagram_caption(self, quote, author):
         """Create Instagram caption with quote, author, and hashtags."""
         caption_parts = []
@@ -507,7 +533,7 @@ class InstagramAIAgent:
         if not quote or not author or quote_index is None:
             logging.error("Could not get quote. Exiting.")
             return False
-        music_file = self.get_sequential_music()
+        music_file = self.get_random_music()
         if not music_file:
             logging.error("Could not get music file. Exiting.")
             return False
